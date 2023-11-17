@@ -121,6 +121,10 @@ def calculate_retry_delay(
     initial_retry_delay: float,
     max_retry_delay: float,
 ) -> float:
+    """
+    Stolen from https://github.com/openai/openai-python/blob/90aa5eb3ed6b92d9a1de89c0ee063f4768f92256/src/openai/_base_client.py#L586
+    """
+    
     import openai
 
     try:
