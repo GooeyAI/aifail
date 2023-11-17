@@ -21,13 +21,13 @@ def chad_gpt4(messages, max_tokens=4000):
     response = try_all(
         # first try with azure
         lambda: azure_client.chat.completions.create(
-            model="openai-gpt-4-prod-ca-1-x",  # replace with your deployment name
+            model="openai-gpt-4-prod-ca-1",  # replace with your deployment name
             messages=messages,
             max_tokens=max_tokens,
         ),
         # if that fails (for whatever reason), try with openai
         lambda: openai_client.chat.completions.create(
-            model="gpt-4-x",
+            model="gpt-4",
             messages=messages,
             max_tokens=max_tokens,
         ),
