@@ -13,7 +13,7 @@ To get started, simply wrap your functions with `@retry_if`, specifying the cond
 
 https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/basic_openai.py#L5
 
-https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/basic_openai.py#L12-L30
+https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/basic_openai.py#L13-L30
 
 
 ### Advanced Usage
@@ -24,8 +24,6 @@ To save costs and handle rate limits, you can intelligently specify quick fallba
 https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L7-L16
 
 https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L19-L35
-
-https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L38-L49
 
 ### Inspectable Errors
 
