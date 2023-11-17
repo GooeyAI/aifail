@@ -2,6 +2,7 @@
 Python Library for retrying openai/gcp API calls    
 
 ### Installation
+
 ```bash
 pip install aifail
 ```
@@ -10,21 +11,28 @@ pip install aifail
 
 To get started, simply wrap your functions with `@retry_if`, specifying the condition to retry on.
 
-https://github.com/GooeyAI/gooey-server/blob/master/examples/basic_openai.py
+https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/basic_openai.py#L5
+
+https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/basic_openai.py#L12-L30
+
 
 ### Advanced Usage
 
 This library is used by GooeyAI in production to handle thousands of API calls every day. 
-To save costs and handle rate limits, you can intelligently specify quick fallbacks -
+To save costs and handle rate limits, you can intelligently specify quick fallbacks (eg azure openai) -
 
-https://github.com/GooeyAI/gooey-server/blob/master/examples/azure_openai_fallback.py
+https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L7-L16
+
+https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L19-L35
+
+https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L38-L49
 
 ### Inspectable Errors
 
 AiFail comes with a built in logger, and outputs complete stack traces tracing the error back to the original call site.
 
-```
-/Users/dev/.virtualenvs/aifail-b178d07d/bin/python /Users/dev/Projects/dara/aifail/examples/azure_openai_fallback.py 
+```bash
+# python examples/azure_openai_fallback.py 
 2023-11-18 04:36:01.364 | WARNING  | aifail.aifail:try_all:63 - [2/2] tyring next fn, prev_exc=NotFoundError("Error code: 404 - {'error': {'code': 'DeploymentNotFound', 'message': 'The API deployment for this resource does not exist. If you created the deployment within the last 5 minutes, please wait a moment and try again.'}}")
 2023-11-18 04:36:01.778 | WARNING  | aifail.aifail:wrapper:98 - [1/1] captured error, retry_delay=0.4117675457681431s, exc=NotFoundError("Error code: 404 - {'error': {'message': 'The model `gpt-4-x` does not exist', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}")
 2023-11-18 04:36:02.483 | WARNING  | aifail.aifail:try_all:63 - [2/2] tyring next fn, prev_exc=NotFoundError("Error code: 404 - {'error': {'code': 'DeploymentNotFound', 'message': 'The API deployment for this resource does not exist. If you created the deployment within the last 5 minutes, please wait a moment and try again.'}}")
