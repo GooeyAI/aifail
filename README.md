@@ -25,7 +25,7 @@ https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/
 
 https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/azure_openai_fallback.py#L19-L35
 
-### Inspectable Errors
+### Traceable Errors
 
 AiFail comes with a built in logger, and outputs complete stack traces tracing the error back to the original call site.
 
@@ -91,3 +91,8 @@ openai.NotFoundError: Error code: 404 - {'error': {'message': 'The model `gpt-4-
 
 Process finished with exit code 1
 ```
+
+Sentry too, will capture the entire retry loop
+
+<img width="573" alt="image" src="https://github.com/GooeyAI/aifail/assets/19492893/958e4a74-4159-4784-a69c-e50e45b47494">
+
