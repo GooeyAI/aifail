@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "aifail"
+version = "0.1.0"
+description = ""
+authors = ["Dev Aggarwal <devxpy@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+loguru = "^0.7.2"
+
+
+[tool.poetry.group.dev.dependencies]
+openai = "^1.3.2"
+google-api-python-client = "^2.108.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
