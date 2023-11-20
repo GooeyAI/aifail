@@ -16,6 +16,28 @@ https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/
 https://github.com/GooeyAI/aifail/blob/a540c05a2a9436c0b6b1caab8ed823387999d5f9/examples/basic_openai.py#L13-L30
 
 
+### Custom logic
+
+You can use this with anything that needs retrying, e.g. google sheets -
+
+
+```py
+def sheets_api_should_retry(e: Exception) -> bool:
+    return isinstance(e, HttpError) and (
+        e.resp.status in (408, 429) or e.resp.status > 500
+    )
+
+
+@retry_if(sheets_api_should_retry)
+def update_cell(spreadsheet_id: str, row: int, col: int, value: str):
+    get_spreadsheet_service().values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"{col_i2a(col)}{row}:{col_i2a(col)}{row}",
+        body={"values": [[value]]},
+        valueInputOption="RAW",
+    ).execute()
+```
+
 ### Advanced Usage
 
 This library is used by GooeyAI in production to handle thousands of API calls every day. 
