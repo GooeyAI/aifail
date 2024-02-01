@@ -2,6 +2,7 @@ import email.utils
 import time
 import typing
 from functools import wraps
+from inspect import isgenerator
 from random import random
 from time import sleep
 
@@ -83,7 +84,11 @@ def retry_if(
             assert max_retries, "max_retries must be > 0"
             for idx in range(max_retries + 1):
                 try:
-                    return fn(*args, **kwargs)
+                    ret = fn(*args, **kwargs)
+                    if isgenerator(ret):
+                        return generator_wrapper(ret)
+                    else:
+                        return ret
                 except Exception as exc:
                     set_root_cause(exc, prev_exc)
                     prev_exc = exc
@@ -104,6 +109,20 @@ def retry_if(
         return wrapper
 
     return decorator
+
+
+G = typing.TypeVar("G", bound=typing.Generator)
+
+
+def generator_wrapper(g: G) -> G:
+    # get the first value from the generator to catch any exceptions
+    first_val = next(g)
+
+    def wrapper() -> G:
+        yield first_val
+        return (yield from g)
+
+    return wrapper()
 
 
 def set_root_cause(exc: Exception, cause: Exception) -> Exception | None:
