@@ -54,6 +54,18 @@ def vertex_ai_should_retry(e: Exception) -> bool:
         ),
     )
 
+def groq_cloud_should_retry(e: Exception) -> bool:
+    import groq
+
+    return isinstance(
+        e,
+        (
+            groq.APIConnectionError,
+            groq.RateLimitError,
+            groq.APITimeoutError,
+            groq.InternalServerError
+        ),
+    )
 
 def try_all(*fns: typing.Callable[[], R]) -> R:
     assert len(fns) > 0, "Must provide at least one fn"
