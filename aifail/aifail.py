@@ -60,10 +60,10 @@ def groq_cloud_should_retry(e: Exception) -> bool:
     return isinstance(
         e,
         (
-            groq.APIConnectionError
-            groq.RateLimitError
-            groq.APITimeoutError
-            groq.APIStatusError
+            groq.APIConnectionError,
+            groq.RateLimitError,
+            groq.APITimeoutError,
+            groq.InternalServerError
         ),
     )
 
