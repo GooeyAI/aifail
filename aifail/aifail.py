@@ -56,6 +56,22 @@ def vertex_ai_should_retry(e: Exception) -> bool:
     )
 
 
+def http_should_retry(e: Exception) -> bool:
+    import requests
+
+    return (
+        isinstance(
+            e,
+            (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+            ),
+        )
+        or isinstance(e, requests.HTTPError)
+        and e.response.status_code in [429, 502, 503, 504]
+    )
+
+
 def try_all(*fns: typing.Callable[[], R]) -> R:
     assert len(fns) > 0, "Must provide at least one fn"
     prev_exc = None
@@ -70,12 +86,78 @@ def try_all(*fns: typing.Callable[[], R]) -> R:
     raise prev_exc
 
 
+def calculate_retry_delay(
+    *,
+    exc: Exception,
+    idx: int,
+    initial_retry_delay: float,
+    max_retry_delay: float,
+) -> float:
+    """
+    Stolen from https://github.com/openai/openai-python/blob/90aa5eb3ed6b92d9a1de89c0ee063f4768f92256/src/openai/_base_client.py#L586
+    """
+
+    api_errors = ()
+    try:
+        import openai
+
+        api_errors += (openai.APIStatusError,)
+    except ImportError:
+        pass
+    try:
+        import requests
+
+        api_errors += (requests.HTTPError,)
+    except ImportError:
+        pass
+    try:
+        import httpx
+
+        api_errors += (httpx.HTTPStatusError,)
+    except ImportError:
+        pass
+
+    try:
+        # About the Retry-After header: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+        #
+        # <http-date>". See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After#syntax for
+        # details.
+        if isinstance(exc, api_errors) and exc.response.headers:
+            retry_header = exc.response.headers.get("retry-after")
+            try:
+                retry_after = int(retry_header)
+            except Exception:
+                retry_date_tuple = email.utils.parsedate_tz(retry_header)
+                if retry_date_tuple is None:
+                    retry_after = -1
+                else:
+                    retry_date = email.utils.mktime_tz(retry_date_tuple)
+                    retry_after = int(retry_date - time.time())
+        else:
+            retry_after = -1
+    except Exception:
+        retry_after = -1
+
+    # If the API asks us to wait a certain amount of time (and it's a reasonable amount), just do what it says.
+    if 0 < retry_after <= 60:
+        return retry_after
+
+    # Apply exponential backoff, but not more than the max.
+    sleep_seconds = min(initial_retry_delay * pow(2.0, idx), max_retry_delay)
+
+    # Apply some jitter, plus-or-minus half a second.
+    jitter = 1 - 0.25 * random()
+    timeout = sleep_seconds * jitter
+    return timeout if timeout >= 0 else 0
+
+
 def retry_if(
     shuld_retry_fn: typing.Callable[[Exception], bool],
     *,
     max_retries: int = MAX_RETRIES,
     initial_retry_delay: float = 0.5,
     max_retry_delay: float = 8.0,
+    calculate_retry_delay: typing.Callable[..., float] = calculate_retry_delay,
 ) -> typing.Callable[[F], F]:
     def decorator(fn):
         @wraps(fn)
@@ -131,51 +213,3 @@ def set_root_cause(exc: Exception, cause: Exception) -> Exception | None:
             exc.__cause__ = cause
             return exc
         exc = exc.__cause__
-
-
-def calculate_retry_delay(
-    *,
-    exc: Exception,
-    idx: int,
-    initial_retry_delay: float,
-    max_retry_delay: float,
-) -> float:
-    """
-    Stolen from https://github.com/openai/openai-python/blob/90aa5eb3ed6b92d9a1de89c0ee063f4768f92256/src/openai/_base_client.py#L586
-    """
-    
-    import openai
-
-    try:
-        # About the Retry-After header: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-        #
-        # <http-date>". See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After#syntax for
-        # details.
-        if isinstance(exc, openai.APIStatusError) and exc.response.headers:
-            retry_header = exc.response.headers.get("retry-after")
-            try:
-                retry_after = int(retry_header)
-            except Exception:
-                retry_date_tuple = email.utils.parsedate_tz(retry_header)
-                if retry_date_tuple is None:
-                    retry_after = -1
-                else:
-                    retry_date = email.utils.mktime_tz(retry_date_tuple)
-                    retry_after = int(retry_date - time.time())
-        else:
-            retry_after = -1
-
-    except Exception:
-        retry_after = -1
-
-    # If the API asks us to wait a certain amount of time (and it's a reasonable amount), just do what it says.
-    if 0 < retry_after <= 60:
-        return retry_after
-
-    # Apply exponential backoff, but not more than the max.
-    sleep_seconds = min(initial_retry_delay * pow(2.0, idx), max_retry_delay)
-
-    # Apply some jitter, plus-or-minus half a second.
-    jitter = 1 - 0.25 * random()
-    timeout = sleep_seconds * jitter
-    return timeout if timeout >= 0 else 0
