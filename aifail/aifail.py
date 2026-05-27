@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import email.utils
 import time
 import typing
@@ -14,32 +16,77 @@ R = typing.TypeVar("R")
 MAX_RETRIES = 10
 
 
+RETRYABLE_HTTP_STATUS_CODES = frozenset(
+    {
+        408,  # Request Timeout
+        409,  # Conflict
+        425,  # Too Early
+        429,  # Too Many Requests / rate limit
+        500,  # Internal Server Error
+        502,  # Bad Gateway
+        503,  # Service Unavailable
+        504,  # Gateway Timeout
+        529,  # Overloaded (Anthropic)
+    }
+)
+
+# Error `type` values that map to retryable HTTP status codes, used to filter
+# bare `openai.APIError`s raised mid-stream (e.g. by `openai/_streaming.py`)
+# where no `status_code` is attached. Vocabulary taken from
+# https://docs.anthropic.com/en/api/errors which is what surfaces here in
+# practice via OpenAI-compatible providers.
+OPENAI_RETRYABLE_ERROR_TYPES = frozenset(
+    {
+        "rate_limit_error",  # 429
+        "api_error",  # 500
+        "timeout_error",  # 504
+        "overloaded_error",  # 529
+    }
+)
+
+
 def openai_should_retry(e: Exception) -> bool:
     """
     https://platform.openai.com/docs/guides/error-codes
+
+    Retry policy:
+    - openai.APIConnectionError / APITimeoutError: always retry (transient network).
+    - openai.APIStatusError: retry only if status_code is in
+      `RETRYABLE_HTTP_STATUS_CODES`, after honoring the `x-should-retry` header.
+    - bare openai.APIError (e.g. raised mid-stream by openai/_streaming.py when an
+      OpenAI-compatible provider returns an error inside the SSE body, where the
+      HTTP response was 200 OK and there's no status_code): retry only if the
+      error body's `type` is in `OPENAI_RETRYABLE_ERROR_TYPES`. This also
+      implicitly excludes `APIResponseValidationError` (no body type set).
     """
     import openai
 
-    if isinstance(e, openai.APIStatusError) and e.response.headers:
-        # If the server explicitly says whether or not to retry, obey.
+    is_transient_network_error = isinstance(
+        e, (openai.APIConnectionError, openai.APITimeoutError)
+    )
+    has_retryable_error_type = (
+        isinstance(e, openai.APIError) and e.type in OPENAI_RETRYABLE_ERROR_TYPES
+    )
+    return (
+        is_transient_network_error
+        or _openai_status_error_should_retry(e)
+        or has_retryable_error_type
+    )
+
+
+def _openai_status_error_should_retry(e: Exception) -> bool:
+    import openai
+
+    if not isinstance(e, openai.APIStatusError):
+        return False
+    # If the server explicitly says whether or not to retry, obey.
+    if e.response is not None and e.response.headers:
         should_retry_header = e.response.headers.get("x-should-retry")
         if should_retry_header == "true":
             return True
         if should_retry_header == "false":
             return False
-
-    good_exc = (
-        openai.APIConnectionError,
-        openai.APITimeoutError,
-        openai.APIStatusError,
-    )
-    bad_exc = (
-        openai.BadRequestError,
-        openai.AuthenticationError,
-        openai.PermissionDeniedError,
-        openai.NotFoundError,
-    )
-    return isinstance(e, good_exc) and not isinstance(e, bad_exc)
+    return e.status_code in RETRYABLE_HTTP_STATUS_CODES
 
 
 def vertex_ai_should_retry(e: Exception) -> bool:
@@ -59,17 +106,15 @@ def vertex_ai_should_retry(e: Exception) -> bool:
 def http_should_retry(e: Exception) -> bool:
     import requests
 
-    return (
-        isinstance(
-            e,
-            (
-                requests.exceptions.ConnectionError,
-                requests.exceptions.Timeout,
-            ),
-        )
-        or isinstance(e, requests.HTTPError)
-        and e.response.status_code in [429, 502, 503, 504]
+    is_transient_network_error = isinstance(
+        e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
     )
+    is_retryable_status_error = (
+        isinstance(e, requests.HTTPError)
+        and e.response is not None
+        and e.response.status_code in RETRYABLE_HTTP_STATUS_CODES
+    )
+    return is_transient_network_error or is_retryable_status_error
 
 
 def try_all(*fns: typing.Callable[[], R]) -> R:
